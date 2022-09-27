@@ -1,0 +1,98 @@
+
+Short summary of below interaction
+
+When first redirect to keycloak is done and login is presented through a response from keycloak, AUTH_SESSION_ID_LEGACY cookie is set.
+When the response from passing user credentials to keycloak returns, KEYCLOAK_SESSION_LEGACY cookie is set.
+
+Any additional access to app itself causes redirect to keycloak so AUTH_SESSION_ID_LEGACY and KEYCLOAK_SESSION_LEGACY are passed
+and based on one of them keycloak decides that session authentication was already done. Hence keycloak initiates immediate redirect
+to the application.
+
+////////////////////////////////////////////////
+////////////////////////////////////////////////
+
+http://keycloak-http:9999/auth/realms/mytest1/protocol/openid-connect/auth?client_id=keycloak-integration-app&redirect_uri=http%3A%2F%2Flocalhost%3A9094%2Foauth2&response_type=code&state=xyz
+
+Response of above (i.e while login form is presented) -
+
+
+AUTH_SESSION_ID=9aa03f00-8f1c-4c46-9030-6f3c927f0e4e.keycloak-0-32136; Version=1; Path=/auth/realms/mytest1/; SameSite=None; Secure; HttpOnly
+AUTH_SESSION_ID_LEGACY=9aa03f00-8f1c-4c46-9030-6f3c927f0e4e.keycloak-0-32136; Version=1; Path=/auth/realms/mytest1/; HttpOnly
+KC_RESTART=eyJhbGciOiJIUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICI4ZjM0YjU0NC1kMTMyLTRkY2ItYWJmMS02YzMzNmE3ZDk3MTgifQ.eyJjaWQiOiJrZXljbG9hay1pbnRlZ3JhdGlvbi1hcHAiLCJwdHkiOiJvcGVuaWQtY29ubmVjdCIsInJ1cmkiOiJodHRwOi8vbG9jYWxob3N0OjkwOTQvb2F1dGgyIiwiYWN0IjoiQVVUSEVOVElDQVRFIiwibm90ZXMiOnsiaXNzIjoiaHR0cDovL2tleWNsb2FrLWh0dHA6OTk5OS9hdXRoL3JlYWxtcy9teXRlc3QxIiwicmVzcG9uc2VfdHlwZSI6ImNvZGUiLCJyZWRpcmVjdF91cmkiOiJodHRwOi8vbG9jYWxob3N0OjkwOTQvb2F1dGgyIiwic3RhdGUiOiJ4eXoifX0.Z35Tuw6KRarRZo7jqVRJsf7onm_bN0PHnjPHtRYcPl4; Version=1; Path=/auth/realms/mytest1/; HttpOnly
+
+
+
+/////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////
+
+http://keycloak-http:9999/auth/realms/mytest1/login-actions/authenticate?session_code=DBMOSS1EhrJfv3qjQ0QRD0U5rx07di27BYw-CryFiR8&execution=306b5f1a-a357-46f4-8812-e2c1369d749e&client_id=keycloak-integration-app&tab_id=idybHdpGjQ4
+
+username=myuser1&password=123&credentialId=
+
+
+
+Request to above (when user creds are passed) - contains same AUTH_SESSION_ID_LEGACY cookie
+
+
+
+AUTH_SESSION_ID_LEGACY=9aa03f00-8f1c-4c46-9030-6f3c927f0e4e.keycloak-0-32136; KC_RESTART=eyJhbGciOiJIUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICI4ZjM0YjU0NC1kMTMyLTRkY2ItYWJmMS02YzMzNmE3ZDk3MTgifQ.eyJjaWQiOiJrZXljbG9hay1pbnRlZ3JhdGlvbi1hcHAiLCJwdHkiOiJvcGVuaWQtY29ubmVjdCIsInJ1cmkiOiJodHRwOi8vbG9jYWxob3N0OjkwOTQvb2F1dGgyIiwiYWN0IjoiQVVUSEVOVElDQVRFIiwibm90ZXMiOnsiaXNzIjoiaHR0cDovL2tleWNsb2FrLWh0dHA6OTk5OS9hdXRoL3JlYWxtcy9teXRlc3QxIiwicmVzcG9uc2VfdHlwZSI6ImNvZGUiLCJyZWRpcmVjdF91cmkiOiJodHRwOi8vbG9jYWxob3N0OjkwOTQvb2F1dGgyIiwic3RhdGUiOiJ4eXoifX0.Z35Tuw6KRarRZo7jqVRJsf7onm_bN0PHnjPHtRYcPl4
+
+
+
+The response of above
+
+
+
+KEYCLOAK_IDENTITY=eyJhbGciOiJIUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICI4ZjM0YjU0NC1kMTMyLTRkY2ItYWJmMS02YzMzNmE3ZDk3MTgifQ.eyJleHAiOjE2NjI4NjA2NTQsImlhdCI6MTY2MjgyNDY1NCwianRpIjoiNjM0YzQ2MjAtYmY4NC00YmFjLThkN2ItMzgzMDk3YTk2OWMwIiwiaXNzIjoiaHR0cDovL2tleWNsb2FrLWh0dHA6OTk5OS9hdXRoL3JlYWxtcy9teXRlc3QxIiwic3ViIjoiYTU0YzMyOGYtN2FjOS00ODE5LWFjNjYtYjMwYjEwY2NmODg5IiwidHlwIjoiU2VyaWFsaXplZC1JRCIsInNlc3Npb25fc3RhdGUiOiI5YWEwM2YwMC04ZjFjLTRjNDYtOTAzMC02ZjNjOTI3ZjBlNGUiLCJzaWQiOiI5YWEwM2YwMC04ZjFjLTRjNDYtOTAzMC02ZjNjOTI3ZjBlNGUiLCJzdGF0ZV9jaGVja2VyIjoiRzJHYlpLTUxFNDRWS3Y3RXJzZWV6OHpaXy1RdV94NGJ4WS1hNDNTQWoxcyJ9.Co3U2siLtwojwqjZsySHb_kZ4SPEiRh9rukgGjpgb7Q; Version=1; Path=/auth/realms/mytest1/; SameSite=None; Secure; HttpOnly
+
+
+KEYCLOAK_IDENTITY_LEGACY=eyJhbGciOiJIUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICI4ZjM0YjU0NC1kMTMyLTRkY2ItYWJmMS02YzMzNmE3ZDk3MTgifQ.eyJleHAiOjE2NjI4NjA2NTQsImlhdCI6MTY2MjgyNDY1NCwianRpIjoiNjM0YzQ2MjAtYmY4NC00YmFjLThkN2ItMzgzMDk3YTk2OWMwIiwiaXNzIjoiaHR0cDovL2tleWNsb2FrLWh0dHA6OTk5OS9hdXRoL3JlYWxtcy9teXRlc3QxIiwic3ViIjoiYTU0YzMyOGYtN2FjOS00ODE5LWFjNjYtYjMwYjEwY2NmODg5IiwidHlwIjoiU2VyaWFsaXplZC1JRCIsInNlc3Npb25fc3RhdGUiOiI5YWEwM2YwMC04ZjFjLTRjNDYtOTAzMC02ZjNjOTI3ZjBlNGUiLCJzaWQiOiI5YWEwM2YwMC04ZjFjLTRjNDYtOTAzMC02ZjNjOTI3ZjBlNGUiLCJzdGF0ZV9jaGVja2VyIjoiRzJHYlpLTUxFNDRWS3Y3RXJzZWV6OHpaXy1RdV94NGJ4WS1hNDNTQWoxcyJ9.Co3U2siLtwojwqjZsySHb_kZ4SPEiRh9rukgGjpgb7Q; Version=1; Path=/auth/realms/mytest1/; HttpOnly
+
+
+KEYCLOAK_SESSION=mytest1/a54c328f-7ac9-4819-ac66-b30b10ccf889/9aa03f00-8f1c-4c46-9030-6f3c927f0e4e; Version=1; Expires=Sun, 11-Sep-2022 01:44:14 GMT; Max-Age=36000; Path=/auth/realms/mytest1/; SameSite=None; Secure
+
+KEYCLOAK_SESSION_LEGACY=mytest1/a54c328f-7ac9-4819-ac66-b30b10ccf889/9aa03f00-8f1c-4c46-9030-6f3c927f0e4e; Version=1; Expires=Sun, 11-Sep-2022 01:44:14 GMT; Max-Age=36000; Path=/auth/realms/mytest1/
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+http://localhost:9094/oauth2?state=xyz&session_state=9aa03f00-8f1c-4c46-9030-6f3c927f0e4e&code=fe023988-9e80-420e-8de8-3d4cfdd2dcb2.9aa03f00-8f1c-4c46-9030-6f3c927f0e4e.3bd24949-7cd4-4798-b187-4a726645934d
+
+
+Redirected back to above app url
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////
+
+Trying additional request to
+http://localhost:9094/
+
+Redirected to
+http://keycloak-http:9999/auth/realms/mytest1/protocol/openid-connect/auth?client_id=keycloak-integration-app&redirect_uri=http%3A%2F%2Flocalhost%3A9094%2Foauth2&response_type=code&state=xyz
+
+
+Includes in request
+
+AUTH_SESSION_ID_LEGACY=9aa03f00-8f1c-4c46-9030-6f3c927f0e4e.keycloak-0-32136;
+
+KEYCLOAK_IDENTITY_LEGACY=eyJhbGciOiJIUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICI4ZjM0YjU0NC1kMTMyLTRkY2ItYWJmMS02YzMzNmE3ZDk3MTgifQ.eyJleHAiOjE2NjI4NjA2NTQsImlhdCI6MTY2MjgyNDY1NCwianRpIjoiNjM0YzQ2MjAtYmY4NC00YmFjLThkN2ItMzgzMDk3YTk2OWMwIiwiaXNzIjoiaHR0cDovL2tleWNsb2FrLWh0dHA6OTk5OS9hdXRoL3JlYWxtcy9teXRlc3QxIiwic3ViIjoiYTU0YzMyOGYtN2FjOS00ODE5LWFjNjYtYjMwYjEwY2NmODg5IiwidHlwIjoiU2VyaWFsaXplZC1JRCIsInNlc3Npb25fc3RhdGUiOiI5YWEwM2YwMC04ZjFjLTRjNDYtOTAzMC02ZjNjOTI3ZjBlNGUiLCJzaWQiOiI5YWEwM2YwMC04ZjFjLTRjNDYtOTAzMC02ZjNjOTI3ZjBlNGUiLCJzdGF0ZV9jaGVja2VyIjoiRzJHYlpLTUxFNDRWS3Y3RXJzZWV6OHpaXy1RdV94NGJ4WS1hNDNTQWoxcyJ9.Co3U2siLtwojwqjZsySHb_kZ4SPEiRh9rukgGjpgb7Q;
+
+KEYCLOAK_SESSION_LEGACY=mytest1/a54c328f-7ac9-4819-ac66-b30b10ccf889/9aa03f00-8f1c-4c46-9030-6f3c927f0e4e
+
+
+This is decrypted KEYCLOAK_IDENTITY_LEGACY
+
+{
+  "exp": 1662860654,
+  "iat": 1662824654,
+  "jti": "634c4620-bf84-4bac-8d7b-383097a969c0",
+  "iss": "http://keycloak-http:9999/auth/realms/mytest1",
+  "sub": "a54c328f-7ac9-4819-ac66-b30b10ccf889",
+  "typ": "Serialized-ID",
+  "session_state": "9aa03f00-8f1c-4c46-9030-6f3c927f0e4e",
+  "sid": "9aa03f00-8f1c-4c46-9030-6f3c927f0e4e",
+  "state_checker": "G2GbZKMLE44VKv7Erseez8zZ_-Qu_x4bxY-a43SAj1s"
+}
