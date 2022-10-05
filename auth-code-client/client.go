@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/Nerzal/gocloak/v11"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/shpboris/logger"
@@ -64,8 +65,9 @@ func nestedPage(w http.ResponseWriter, r *http.Request) {
 func HeaderMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.Contains(r.RequestURI, "/oauth") {
+			ctx := context.Background()
 			ck, _ := r.Cookie("SESSION_ID")
-			if ck == nil || !validateOrRefreshToken(ck.Value) {
+			if ck == nil || !validateOrRefreshToken(ctx, ck.Value) {
 				u := config.AuthCodeURL("xyz")
 				http.Redirect(w, r, u, http.StatusFound)
 			}
@@ -74,7 +76,6 @@ func HeaderMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// Authorize
 func Authorize(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	state := r.Form.Get("state")
@@ -100,10 +101,11 @@ func Authorize(w http.ResponseWriter, r *http.Request) {
 
 	expires := time.Now().AddDate(0, 0, 1)
 	ck := http.Cookie{
-		Name:    "SESSION_ID",
-		Domain:  "localhost",
-		Path:    "/",
-		Expires: expires,
+		Name:     "SESSION_ID",
+		Domain:   "localhost",
+		Path:     "/",
+		Expires:  expires,
+		HttpOnly: true,
 	}
 	ck.Value = id
 	http.SetCookie(w, &ck)
@@ -111,10 +113,40 @@ func Authorize(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
-func validateOrRefreshToken(id string) bool {
+func validateOrRefreshToken(ctx context.Context, id string) bool {
 	token := idToTokenMap[id]
+	if token == nil {
+		return false
+	}
+	verifyTokenSignature(ctx, token.AccessToken)
+	if token.Expiry.Before(time.Now()) {
+		keyCloakURL := os.Getenv("KEYCLOAK_URL")
+		realm := os.Getenv("REALM")
+		client := gocloak.NewClient(keyCloakURL)
+		jwt, err := client.RefreshToken(ctx, token.RefreshToken, config.ClientID, config.ClientSecret, realm)
+		if err != nil {
+			return false
+		}
+		token.AccessToken = jwt.AccessToken
+		token.RefreshToken = jwt.RefreshToken
+		token.Expiry = time.Now().Add(time.Duration(jwt.ExpiresIn) * time.Second)
+	}
+
 	msg := fmt.Sprintf("Found token: %s", token.AccessToken)
 	logger.Log.Info(msg)
+	return true
+}
+
+func verifyTokenSignature(ctx context.Context, tokenStr string) bool {
+	keyCloakURL := os.Getenv("KEYCLOAK_URL")
+	realm := os.Getenv("REALM")
+	client := gocloak.NewClient(keyCloakURL)
+	jwtToken, jwtClaims, err := client.DecodeAccessToken(ctx, tokenStr, realm)
+	logger.Log.Info("jwtToken", jwtToken)
+	logger.Log.Info("jwtClaims", jwtClaims)
+	if err != nil {
+		return false
+	}
 	return true
 }
 
