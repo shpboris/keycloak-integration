@@ -6,6 +6,7 @@ require (
 	github.com/Nerzal/gocloak/v11 v11.2.0
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
+	github.com/joho/godotenv v1.4.0
 	github.com/shpboris/logger v1.0.0
 	golang.org/x/oauth2 v0.0.0-20220909003341-f21342109be1
 )
