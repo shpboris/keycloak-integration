@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"shpboris/keycloak-integration/auth-code-client/common/constants"
+	"shpboris/keycloak-integration/auth-code-client/common/utils"
 	"shpboris/keycloak-integration/auth-code-client/oauth2_infra"
 )
 
@@ -25,38 +27,29 @@ func main() {
 }
 
 func homePage(w http.ResponseWriter, r *http.Request) {
-	loadPage(w, r, "./auth-code-client/static/home.html")
+	loadPage(w, r, constants.HomePageFilePath)
 }
 
 func nestedPage(w http.ResponseWriter, r *http.Request) {
-	loadPage(w, r, "./auth-code-client/static/nested.html")
+	loadPage(w, r, constants.NestedPageFilePath)
 }
 
 func loadPage(w http.ResponseWriter, r *http.Request, filePath string) {
 	b, err := os.ReadFile(filePath)
-	if handlePossibleError(err, w) {
+	if utils.HandlePossibleError(w, err) {
 		return
 	}
 	w.Header().Set("Content-type", "text/html")
 	_, err = w.Write(b)
-	handlePossibleError(err, w)
+	utils.HandlePossibleError(w, err)
 }
 
 func initAuth() error {
-	err := godotenv.Load("./auth-code-client/.env")
+	err := godotenv.Load(constants.EnvVarsFilePath)
 	if err != nil {
 		logger.Log.Error(err.Error())
 		return err
 	}
 	oauth2_infra.GetOauth2ConfigProvider().Init()
 	return nil
-}
-
-func handlePossibleError(err error, w http.ResponseWriter) bool {
-	if err != nil {
-		logger.Log.Error(err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
-		return true
-	}
-	return false
 }

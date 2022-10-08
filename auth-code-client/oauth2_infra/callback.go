@@ -3,15 +3,18 @@ package oauth2_infra
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/shpboris/logger"
 	"golang.org/x/oauth2"
 	"net/http"
-	"shpboris/keycloak-integration/auth-code-client/common"
+	"shpboris/keycloak-integration/auth-code-client/common/constants"
+	"shpboris/keycloak-integration/auth-code-client/common/utils"
 	"shpboris/keycloak-integration/auth-code-client/session/model"
 	session "shpboris/keycloak-integration/auth-code-client/session/service"
 	"time"
 )
 
 func Authorize(w http.ResponseWriter, r *http.Request) {
+	logger.Log.Info("Started Authorize flow")
 	token, ok := fetchToken(w, r)
 	if !ok {
 		return
@@ -19,24 +22,27 @@ func Authorize(w http.ResponseWriter, r *http.Request) {
 	sessionId := createSession(token)
 	ck := createCookie(sessionId)
 	http.SetCookie(w, &ck)
-	http.Redirect(w, r, "/", http.StatusFound)
+	logger.Log.Info("Completed Authorize flow")
+	http.Redirect(w, r, constants.HomePageURL, http.StatusFound)
 }
 
 func fetchToken(w http.ResponseWriter, r *http.Request) (*oauth2.Token, bool) {
+	logger.Log.Info("Started fetchToken")
 	err := r.ParseForm()
-	if common.HandlePossibleError(w, err) {
+	if utils.HandlePossibleError(w, err) {
 		return nil, false
 	}
 	code := r.Form.Get("code")
 	if code == "" {
-		common.HandleSpecificError(w, "Code not found", http.StatusBadRequest)
+		utils.HandleSpecificError(w, "Code not found", http.StatusBadRequest)
 		return nil, false
 	}
 	config := GetOauth2ConfigProvider().GetConfig()
 	token, err := config.Exchange(context.Background(), code)
-	if common.HandlePossibleError(w, err) {
+	if utils.HandlePossibleError(w, err) {
 		return nil, false
 	}
+	logger.Log.Info("Completed fetchToken")
 	return token, true
 }
 
@@ -49,9 +55,9 @@ func createSession(token *oauth2.Token) string {
 }
 
 func createCookie(id string) http.Cookie {
-	expires := time.Now().Add(10 * time.Hour)
+	expires := time.Now().Add(constants.SessionIdCookieDuration * time.Hour)
 	ck := http.Cookie{
-		Name:     "SESSION_ID",
+		Name:     constants.SessionIdCookieName,
 		Domain:   "localhost",
 		Path:     "/",
 		Expires:  expires,

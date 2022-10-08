@@ -1,98 +1,68 @@
+1.
+The application is used as a Keycloak client in order to test OAuth2 authorization flow grant.
 
-Short summary of below interaction
+2.
+The application runs on http://localhost:9094 and exposes two pages that
+are protected by OAuth2 authorization flow grant:
 
-When first redirect to keycloak is done and login is presented through a response from keycloak, AUTH_SESSION_ID_LEGACY cookie is set.
-When the response from passing user credentials to keycloak returns, KEYCLOAK_SESSION_LEGACY cookie is set.
+http://localhost:9094
+http://localhost:9094/nested
 
-Any additional access to app itself causes redirect to keycloak so AUTH_SESSION_ID_LEGACY and KEYCLOAK_SESSION_LEGACY are passed
-and based on one of them keycloak decides that session authentication was already done. Hence keycloak initiates immediate redirect
-to the application.
+3.
+Attempt to access any of the URL in #2 above, causes redirect to Keycloak that
+runs on http://keycloak-http:9999/.
+More specifically, the URL is defined as http://keycloak-http:9999/auth/realms/mytest1/protocol/openid-connect/auth
+in AUTH_URL value of keycloak-integration/auth-code-client/.env file.
 
-////////////////////////////////////////////////
-////////////////////////////////////////////////
+The full URL that is constructed in the interceptor.go using this line of code u := config.AuthCodeURL("")  is
+http://keycloak-http:9999/auth/realms/mytest1/protocol/openid-connect/auth?client_id=keycloak-integration-app&redirect_uri=http%3A%2F%2Flocalhost%3A9094%2Foauth2&response_type=code
+and includes the URL to return to - http://localhost:9094/oauth2
 
-http://keycloak-http:9999/auth/realms/mytest1/protocol/openid-connect/auth?client_id=keycloak-integration-app&redirect_uri=http%3A%2F%2Flocalhost%3A9094%2Foauth2&response_type=code&state=xyz
+4.
+User logs in with his username and password (myuser1 and 123) and is being redirected back to return URL
+from #3 above - http://localhost:9094/oauth2
 
-Response of above (i.e while login form is presented) -
+5.
+Then the token is obtained on server side using token endpoint defined in keycloak-integration/auth-code-client/.env file
+TOKEN_URL=http://keycloak-http:9999/auth/realms/mytest1/protocol/openid-connect/token
 
+6.
+Once token is obtained, new session with token within it will be created and stored in the map in
+C:\branches\keycloak-integration\auth-code-client\session\service\session_store.go
 
-AUTH_SESSION_ID=9aa03f00-8f1c-4c46-9030-6f3c927f0e4e.keycloak-0-32136; Version=1; Path=/auth/realms/mytest1/; SameSite=None; Secure; HttpOnly
-AUTH_SESSION_ID_LEGACY=9aa03f00-8f1c-4c46-9030-6f3c927f0e4e.keycloak-0-32136; Version=1; Path=/auth/realms/mytest1/; HttpOnly
-KC_RESTART=eyJhbGciOiJIUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICI4ZjM0YjU0NC1kMTMyLTRkY2ItYWJmMS02YzMzNmE3ZDk3MTgifQ.eyJjaWQiOiJrZXljbG9hay1pbnRlZ3JhdGlvbi1hcHAiLCJwdHkiOiJvcGVuaWQtY29ubmVjdCIsInJ1cmkiOiJodHRwOi8vbG9jYWxob3N0OjkwOTQvb2F1dGgyIiwiYWN0IjoiQVVUSEVOVElDQVRFIiwibm90ZXMiOnsiaXNzIjoiaHR0cDovL2tleWNsb2FrLWh0dHA6OTk5OS9hdXRoL3JlYWxtcy9teXRlc3QxIiwicmVzcG9uc2VfdHlwZSI6ImNvZGUiLCJyZWRpcmVjdF91cmkiOiJodHRwOi8vbG9jYWxob3N0OjkwOTQvb2F1dGgyIiwic3RhdGUiOiJ4eXoifX0.Z35Tuw6KRarRZo7jqVRJsf7onm_bN0PHnjPHtRYcPl4; Version=1; Path=/auth/realms/mytest1/; HttpOnly
+The key to the map will be new UUID value.
 
+Then cookie named SESSION_ID will be created with id equals to UUID above.
+Finally, the redirect to home page will be performed and cookie will be received by browser.
 
+7.
+Upon new request to get nested or home UI page, the cookie will be received on server,
+corresponding session and then token will be found. Token expiration will be checked.
+If token is not expired yet (by default valid for 5 minutes in keycloak) - then UI page will be returned.
 
-/////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////
+If expired, refresh token will be used to obtain new token and refresh token which will be stored in session
+and UI page will be returned.
+Refresh token is valid for minimum between whatever remained of default 10 hours of "SSO Session Max"
+and full default 30 minutes of "SSO Session Idle" defined in Keycloak. Any attempt to use refresh token
+to get a new refresh/token pair, will grant additional default 30 minutes per "SSO Session Idle" and so on and so forth until
+full 10 hours per "SSO Session Max". So basically if session is not idle (i.e user requests some pages each 30 minutes),
+no re-login attempts will be required for full 10 hours.
+See more here - https://stackoverflow.com/questions/52040265/how-to-specify-refresh-tokens-lifespan-in-keycloak
 
-http://keycloak-http:9999/auth/realms/mytest1/login-actions/authenticate?session_code=DBMOSS1EhrJfv3qjQ0QRD0U5rx07di27BYw-CryFiR8&execution=306b5f1a-a357-46f4-8812-e2c1369d749e&client_id=keycloak-integration-app&tab_id=idybHdpGjQ4
+If session was idle for 30 min or 10 hours elapsed, the redirect to Keycloak will be done and full flow will be completed
+as explained in points #3 - #6 above.
 
-username=myuser1&password=123&credentialId=
+Important - we never arrive to situation where refresh token is not valid anymore but session vs Keycloak is valid.
+Because session vs Keycloak is defined through its own cookie which has lifespan same as refresh token - i.e minimum
+between "SSO Session Max" and "SSO Session Idle". If that wouldn't be the case, the user would be redirected to Keycloak
+without the need to login (Keycloak cookie is still valid) - and then redirected back to app home page. That would be
+confusing experience for the user because instead of seeing the requested page, user would see the home page without
+encountering login screen !
 
+8.
+The needed configuration in Keycloak to support the interaction above was to create OAuth2 client, user, role and map
+user to role as explained here - https://www.baeldung.com/spring-boot-keycloak
 
-
-Request to above (when user creds are passed) - contains same AUTH_SESSION_ID_LEGACY cookie
-
-
-
-AUTH_SESSION_ID_LEGACY=9aa03f00-8f1c-4c46-9030-6f3c927f0e4e.keycloak-0-32136; KC_RESTART=eyJhbGciOiJIUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICI4ZjM0YjU0NC1kMTMyLTRkY2ItYWJmMS02YzMzNmE3ZDk3MTgifQ.eyJjaWQiOiJrZXljbG9hay1pbnRlZ3JhdGlvbi1hcHAiLCJwdHkiOiJvcGVuaWQtY29ubmVjdCIsInJ1cmkiOiJodHRwOi8vbG9jYWxob3N0OjkwOTQvb2F1dGgyIiwiYWN0IjoiQVVUSEVOVElDQVRFIiwibm90ZXMiOnsiaXNzIjoiaHR0cDovL2tleWNsb2FrLWh0dHA6OTk5OS9hdXRoL3JlYWxtcy9teXRlc3QxIiwicmVzcG9uc2VfdHlwZSI6ImNvZGUiLCJyZWRpcmVjdF91cmkiOiJodHRwOi8vbG9jYWxob3N0OjkwOTQvb2F1dGgyIiwic3RhdGUiOiJ4eXoifX0.Z35Tuw6KRarRZo7jqVRJsf7onm_bN0PHnjPHtRYcPl4
-
-
-
-The response of above
-
-
-
-KEYCLOAK_IDENTITY=eyJhbGciOiJIUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICI4ZjM0YjU0NC1kMTMyLTRkY2ItYWJmMS02YzMzNmE3ZDk3MTgifQ.eyJleHAiOjE2NjI4NjA2NTQsImlhdCI6MTY2MjgyNDY1NCwianRpIjoiNjM0YzQ2MjAtYmY4NC00YmFjLThkN2ItMzgzMDk3YTk2OWMwIiwiaXNzIjoiaHR0cDovL2tleWNsb2FrLWh0dHA6OTk5OS9hdXRoL3JlYWxtcy9teXRlc3QxIiwic3ViIjoiYTU0YzMyOGYtN2FjOS00ODE5LWFjNjYtYjMwYjEwY2NmODg5IiwidHlwIjoiU2VyaWFsaXplZC1JRCIsInNlc3Npb25fc3RhdGUiOiI5YWEwM2YwMC04ZjFjLTRjNDYtOTAzMC02ZjNjOTI3ZjBlNGUiLCJzaWQiOiI5YWEwM2YwMC04ZjFjLTRjNDYtOTAzMC02ZjNjOTI3ZjBlNGUiLCJzdGF0ZV9jaGVja2VyIjoiRzJHYlpLTUxFNDRWS3Y3RXJzZWV6OHpaXy1RdV94NGJ4WS1hNDNTQWoxcyJ9.Co3U2siLtwojwqjZsySHb_kZ4SPEiRh9rukgGjpgb7Q; Version=1; Path=/auth/realms/mytest1/; SameSite=None; Secure; HttpOnly
-
-
-KEYCLOAK_IDENTITY_LEGACY=eyJhbGciOiJIUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICI4ZjM0YjU0NC1kMTMyLTRkY2ItYWJmMS02YzMzNmE3ZDk3MTgifQ.eyJleHAiOjE2NjI4NjA2NTQsImlhdCI6MTY2MjgyNDY1NCwianRpIjoiNjM0YzQ2MjAtYmY4NC00YmFjLThkN2ItMzgzMDk3YTk2OWMwIiwiaXNzIjoiaHR0cDovL2tleWNsb2FrLWh0dHA6OTk5OS9hdXRoL3JlYWxtcy9teXRlc3QxIiwic3ViIjoiYTU0YzMyOGYtN2FjOS00ODE5LWFjNjYtYjMwYjEwY2NmODg5IiwidHlwIjoiU2VyaWFsaXplZC1JRCIsInNlc3Npb25fc3RhdGUiOiI5YWEwM2YwMC04ZjFjLTRjNDYtOTAzMC02ZjNjOTI3ZjBlNGUiLCJzaWQiOiI5YWEwM2YwMC04ZjFjLTRjNDYtOTAzMC02ZjNjOTI3ZjBlNGUiLCJzdGF0ZV9jaGVja2VyIjoiRzJHYlpLTUxFNDRWS3Y3RXJzZWV6OHpaXy1RdV94NGJ4WS1hNDNTQWoxcyJ9.Co3U2siLtwojwqjZsySHb_kZ4SPEiRh9rukgGjpgb7Q; Version=1; Path=/auth/realms/mytest1/; HttpOnly
-
-
-KEYCLOAK_SESSION=mytest1/a54c328f-7ac9-4819-ac66-b30b10ccf889/9aa03f00-8f1c-4c46-9030-6f3c927f0e4e; Version=1; Expires=Sun, 11-Sep-2022 01:44:14 GMT; Max-Age=36000; Path=/auth/realms/mytest1/; SameSite=None; Secure
-
-KEYCLOAK_SESSION_LEGACY=mytest1/a54c328f-7ac9-4819-ac66-b30b10ccf889/9aa03f00-8f1c-4c46-9030-6f3c927f0e4e; Version=1; Expires=Sun, 11-Sep-2022 01:44:14 GMT; Max-Age=36000; Path=/auth/realms/mytest1/
-
-
-
-////////////////////////////////////////////////////////////////////////////////
-
-http://localhost:9094/oauth2?state=xyz&session_state=9aa03f00-8f1c-4c46-9030-6f3c927f0e4e&code=fe023988-9e80-420e-8de8-3d4cfdd2dcb2.9aa03f00-8f1c-4c46-9030-6f3c927f0e4e.3bd24949-7cd4-4798-b187-4a726645934d
-
-
-Redirected back to above app url
-
-
-
-////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////
-
-Trying additional request to
-http://localhost:9094/
-
-Redirected to
-http://keycloak-http:9999/auth/realms/mytest1/protocol/openid-connect/auth?client_id=keycloak-integration-app&redirect_uri=http%3A%2F%2Flocalhost%3A9094%2Foauth2&response_type=code&state=xyz
-
-
-Includes in request
-
-AUTH_SESSION_ID_LEGACY=9aa03f00-8f1c-4c46-9030-6f3c927f0e4e.keycloak-0-32136;
-
-KEYCLOAK_IDENTITY_LEGACY=eyJhbGciOiJIUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICI4ZjM0YjU0NC1kMTMyLTRkY2ItYWJmMS02YzMzNmE3ZDk3MTgifQ.eyJleHAiOjE2NjI4NjA2NTQsImlhdCI6MTY2MjgyNDY1NCwianRpIjoiNjM0YzQ2MjAtYmY4NC00YmFjLThkN2ItMzgzMDk3YTk2OWMwIiwiaXNzIjoiaHR0cDovL2tleWNsb2FrLWh0dHA6OTk5OS9hdXRoL3JlYWxtcy9teXRlc3QxIiwic3ViIjoiYTU0YzMyOGYtN2FjOS00ODE5LWFjNjYtYjMwYjEwY2NmODg5IiwidHlwIjoiU2VyaWFsaXplZC1JRCIsInNlc3Npb25fc3RhdGUiOiI5YWEwM2YwMC04ZjFjLTRjNDYtOTAzMC02ZjNjOTI3ZjBlNGUiLCJzaWQiOiI5YWEwM2YwMC04ZjFjLTRjNDYtOTAzMC02ZjNjOTI3ZjBlNGUiLCJzdGF0ZV9jaGVja2VyIjoiRzJHYlpLTUxFNDRWS3Y3RXJzZWV6OHpaXy1RdV94NGJ4WS1hNDNTQWoxcyJ9.Co3U2siLtwojwqjZsySHb_kZ4SPEiRh9rukgGjpgb7Q;
-
-KEYCLOAK_SESSION_LEGACY=mytest1/a54c328f-7ac9-4819-ac66-b30b10ccf889/9aa03f00-8f1c-4c46-9030-6f3c927f0e4e
-
-
-This is decrypted KEYCLOAK_IDENTITY_LEGACY
-
-{
-  "exp": 1662860654,
-  "iat": 1662824654,
-  "jti": "634c4620-bf84-4bac-8d7b-383097a969c0",
-  "iss": "http://keycloak-http:9999/auth/realms/mytest1",
-  "sub": "a54c328f-7ac9-4819-ac66-b30b10ccf889",
-  "typ": "Serialized-ID",
-  "session_state": "9aa03f00-8f1c-4c46-9030-6f3c927f0e4e",
-  "sid": "9aa03f00-8f1c-4c46-9030-6f3c927f0e4e",
-  "state_checker": "G2GbZKMLE44VKv7Erseez8zZ_-Qu_x4bxY-a43SAj1s"
-}
+9.
+Summary of Keycloak cookie management with real interaction examples vs Keycloak can be found at -
+C:\branches\keycloak-integration\auth-code-client\backup\keycloak-cookie-mgmt.txt
