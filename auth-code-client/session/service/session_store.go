@@ -13,7 +13,7 @@ type SessionStoreService interface {
 
 type service struct{}
 
-func NewSessionStoreService() SessionStoreService {
+func GetSessionStoreService() SessionStoreService {
 	return &service{}
 }
 

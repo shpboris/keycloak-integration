@@ -1,0 +1,12 @@
+1.
+Passing state at interceptor:
+
+u := config.AuthCodeURL("xyz")
+
+Checking corresponding state in callback:
+
+	state := r.Form.Get("state")
+	if state != "xyz" {
+		http.Error(w, "State invalid", http.StatusBadRequest)
+		return nil, false
+	}

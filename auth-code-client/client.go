@@ -11,12 +11,10 @@ import (
 )
 
 func main() {
-	err := godotenv.Load("./auth-code-client/.env")
+	err := initAuth()
 	if err != nil {
-		logger.Log.Error(err.Error())
 		return
 	}
-	oauth2_infra.InitOauth2ConfigProvider()
 	r := mux.NewRouter()
 	r.HandleFunc("/", homePage)
 	r.HandleFunc("/nested", nestedPage)
@@ -42,6 +40,16 @@ func loadPage(w http.ResponseWriter, r *http.Request, filePath string) {
 	w.Header().Set("Content-type", "text/html")
 	_, err = w.Write(b)
 	handlePossibleError(err, w)
+}
+
+func initAuth() error {
+	err := godotenv.Load("./auth-code-client/.env")
+	if err != nil {
+		logger.Log.Error(err.Error())
+		return err
+	}
+	oauth2_infra.GetOauth2ConfigProvider().Init()
+	return nil
 }
 
 func handlePossibleError(err error, w http.ResponseWriter) bool {

@@ -18,8 +18,8 @@ func HeaderMiddleware(next http.Handler) http.Handler {
 			ctx := context.Background()
 			ck, err := r.Cookie("SESSION_ID")
 			if err != nil || ck == nil || !validateOrRefreshToken(ctx, ck.Value) {
-				config := NewOauth2ConfigProvider().GetConfig()
-				u := config.AuthCodeURL("xyz")
+				config := GetOauth2ConfigProvider().GetConfig()
+				u := config.AuthCodeURL("")
 				http.Redirect(w, r, u, http.StatusFound)
 			}
 		}
@@ -28,13 +28,13 @@ func HeaderMiddleware(next http.Handler) http.Handler {
 }
 
 func validateOrRefreshToken(ctx context.Context, id string) bool {
-	sessionStoreService := session.NewSessionStoreService()
+	sessionStoreService := session.GetSessionStoreService()
 	if sessionStoreService.GetSession(id) == nil {
 		return false
 	}
 	token := sessionStoreService.GetSession(id).Token
 	if token.Expiry.Before(time.Now()) {
-		config := NewOauth2ConfigProvider().GetConfig()
+		config := GetOauth2ConfigProvider().GetConfig()
 		keyCloakURL := os.Getenv("KEYCLOAK_URL")
 		realm := os.Getenv("REALM")
 		client := gocloak.NewClient(keyCloakURL)
@@ -46,7 +46,6 @@ func validateOrRefreshToken(ctx context.Context, id string) bool {
 		token.RefreshToken = jwt.RefreshToken
 		token.Expiry = time.Now().Add(time.Duration(jwt.ExpiresIn) * time.Second)
 	}
-
 	msg := fmt.Sprintf("Found token: %s", token.AccessToken)
 	logger.Log.Info(msg)
 	return true
