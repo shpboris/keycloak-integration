@@ -45,6 +45,7 @@ func validateOrRefreshToken(ctx context.Context, id string) bool {
 		client := getKeyCloakClient()
 		jwt, err := client.RefreshToken(ctx, token.RefreshToken, config.ClientID, config.ClientSecret, realm)
 		if err != nil {
+			logger.Log.Warn("Refresh token failed")
 			return false
 		}
 		logger.Log.Info("Refreshed token")
