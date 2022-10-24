@@ -1,0 +1,60 @@
+1.
+Exercise creates a sidecar proxy that uses OPA policy engine to authorize incoming requests.
+The proxied service is usersapi.
+
+The user with username admin is allowed to execute any request on usersapi, others can execute only GET requests.
+See auth-sidecar/auth-proxy/policies/users_policy.rego for details.
+
+Basically all traffic is caught on port 8000 by NAT rule created in init container and forwarded to port 8080
+of proxy where authorization decision is made. Then if request is allowed, it is forwarded to the usersapi. Otherwise -
+rejected with status 403.
+
+2.
+Login to Docker Hub
+nerdctl login registry-1.docker.io
+
+3.
+Build and push init-nw (should be done from auth-sidecar/auth-proxy-init-nw directory)
+nerdctl --namespace k8s.io build -t shpboris/init-nw .
+nerdctl --namespace k8s.io push shpboris/init-nw
+
+4.
+Build and push auth-proxy (should be done from auth-sidecar/auth-proxy directory)
+nerdctl --namespace k8s.io build -t shpboris/auth-proxy .
+nerdctl --namespace k8s.io push shpboris/auth-proxy
+
+5.
+To deploy the setup to K8s (should be done from auth-sidecar/deploy directory)
+
+kubectl apply -f deployment.yml
+kubectl apply -f service.yml
+
+6.
+REST requests
+
+Make sure to execute those requests from within some other pod - not through port forwarding !
+Port forwarding to the service instead of to pod will not work either !!!!
+
+To check that proxy is getting involved it is enough to pass just a URL and proxy will respond with
+"Token not exist" message.
+
+6.1
+GET request with corresponding token and myuser1 user
+curl --location --request GET 'http://localhost:8000/users' \
+--header 'Accept: application/json' \
+--header 'Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICItTkptUlR1WkZ1Q0JjUVB5Zk8welJSd3ZxTGs5V2lQaWZsWVlnb2dBMzNZIn0.eyJleHAiOjE2NjY0Njk3NDQsImlhdCI6MTY2NjQ2OTQ0NCwianRpIjoiOWZhNzI2MWQtMWM1OC00ZjYzLTg3MGUtMDkwZjlhMzNiMzc5IiwiaXNzIjoiaHR0cDovL2tleWNsb2FrLWh0dHA6OTk5OS9hdXRoL3JlYWxtcy9teXRlc3QxIiwic3ViIjoiYTU0YzMyOGYtN2FjOS00ODE5LWFjNjYtYjMwYjEwY2NmODg5IiwidHlwIjoiQmVhcmVyIiwiYXpwIjoiYWRtaW4tY2xpIiwic2Vzc2lvbl9zdGF0ZSI6IjU3ZTUwNGU0LTM1OGEtNDhiZC04NDAyLWZkNDI4OTQwZTFjNyIsImFjciI6IjEiLCJzY29wZSI6ImVtYWlsIHJvbGVzIHByb2ZpbGUiLCJzaWQiOiI1N2U1MDRlNC0zNThhLTQ4YmQtODQwMi1mZDQyODk0MGUxYzciLCJlbWFpbF92ZXJpZmllZCI6ZmFsc2UsInByZWZlcnJlZF91c2VybmFtZSI6Im15dXNlcjEifQ.PYs385IaajYuDrh-9_VlK2ePM5jDSCUb7lYrRslZsImMuItTcp3JGKZsX6LEg4tFMWkJ2RVPCDmgwj0riojumX3pD6FxxwZkrasazAjWEizOglnlO0yJAjSrT6D_zyetQOhb0uw6znkBo750T0_CymBhl61llIrswVkfrv1eqB8tByUpvLVb3ygecY7I7QxYUBzQBplYFHrwJ8Yh32uLRhz8QWSndFX8t2CoToy6dDvO9xiGRzwTH6DfZ0XO38Z8oVyg6dnEnAkkBTwtqvlfXCOLvabe4FcK7e20IwbYvmVe9S1RU0blxzBZ0qi-GmzA1jIobNFkQ7Aq7A1x0G0K_Q'
+
+6.2
+POST request with corresponding token and admin user
+curl --location --request POST 'http://localhost:8000/users' \
+--header 'Accept: application/json' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICItTkptUlR1WkZ1Q0JjUVB5Zk8welJSd3ZxTGs5V2lQaWZsWVlnb2dBMzNZIn0.eyJleHAiOjE2NjY0NzAwNTIsImlhdCI6MTY2NjQ2OTc1MiwianRpIjoiMzZjYjQyNGUtOGFhNi00YTEyLTlmMjktZWJkNDZlMGExMTFiIiwiaXNzIjoiaHR0cDovL2tleWNsb2FrLWh0dHA6OTk5OS9hdXRoL3JlYWxtcy9teXRlc3QxIiwic3ViIjoiNjI3NGFmN2UtYTM1YS00NGJhLTk5YzgtODFkNTViYjdiN2UzIiwidHlwIjoiQmVhcmVyIiwiYXpwIjoiYWRtaW4tY2xpIiwic2Vzc2lvbl9zdGF0ZSI6IjUyNWZkOTM4LWNiYjktNGFiZi05MGI0LTliZjU5NGI5ZGRhZiIsImFjciI6IjEiLCJzY29wZSI6ImVtYWlsIHJvbGVzIHByb2ZpbGUiLCJzaWQiOiI1MjVmZDkzOC1jYmI5LTRhYmYtOTBiNC05YmY1OTRiOWRkYWYiLCJlbWFpbF92ZXJpZmllZCI6ZmFsc2UsInByZWZlcnJlZF91c2VybmFtZSI6ImFkbWluIn0.gLWRn_1p0W4HQZsFWPT7SBM6tsXY7vDuA4eC3oG6_6Xx2F6lWHNUZPQojn-WsJkT0pZcb0e7Jfnkj6xKnXBu9adjvQzovjGamtmaoUeWchVnHeBHWuLKfsluApCkJZo40Y6723hHJ0FHSbApg3HuW0lbqB3kjSQCmfslG9mg4zlagX3BvZkZEVP_3MKaDFTxUa-0ByBwpJnQJd92ILcvJsUkvuFTVZ4Pm2Q1Jrevb7n1mVHkCC00qKE7skxv9iNHYgxUnLdryQrr79nOpsNyOH_0gnEIB0BgbP5urymnkBD8Cy2wPHkSaSWmU0skuuuj60nAos9IZRO7xX0tjDX1Zw' \
+--data-raw '{
+    "userid": "id3",
+    "username": "name3"
+}'
+
+7.
+Important tutorial - https://venilnoronha.io/hand-crafting-a-sidecar-proxy-and-demystifying-istio
+

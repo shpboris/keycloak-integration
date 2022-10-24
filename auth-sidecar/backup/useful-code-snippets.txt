@@ -1,0 +1,15 @@
+1.
+Load OPA policies directly from file system (will not work within binary/executable)
+
+	rego := rego.New(
+		rego.Query("data.auth.allow"),
+		rego.Load([]string{"./policies/users_policy.rego"}, nil),
+		rego.Input(json),
+	)
+
+2.
+Original init.sh that restricted traffic per eth0 interface
+
+#!/bin/bash
+iptables -t nat -A PREROUTING -p tcp -i eth0 --dport 8000 -j REDIRECT --to-port 8080
+iptables -t nat --list

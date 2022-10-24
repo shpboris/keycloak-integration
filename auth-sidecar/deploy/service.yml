@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: usersapi-svc
+  labels:
+    app: usersapi-lbl
+spec:
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+  selector:
+    app: usersapi-lbl

@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: usersapi-dpl
+  labels:
+    app: usersapi-lbl
+spec:
+  selector:
+    matchLabels:
+      app: usersapi-lbl
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: usersapi-lbl
+    spec:
+      initContainers:
+        - name: init-nw
+          image: shpboris/init-nw
+          securityContext:
+            capabilities:
+              add:
+              - NET_ADMIN
+              - NET_RAW
+            privileged: true
+      containers:
+        - name: usersapi
+          image: shpboris/usersapi:in-mem
+          ports:
+            - containerPort: 8000
+        - name: auth-proxy
+          image: shpboris/auth-proxy
+          ports:
+          - containerPort: 8080
