@@ -1,7 +1,7 @@
 package service
 
 import (
-	"shpboris/keycloak-integration/auth-code-client/session/model"
+	"shpboris/auth-code-client/session/model"
 )
 
 var idToTokenMap = make(map[string]*model.Session)

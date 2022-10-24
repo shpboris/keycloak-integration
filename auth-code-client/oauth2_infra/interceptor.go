@@ -7,8 +7,8 @@ import (
 	"github.com/shpboris/logger"
 	"net/http"
 	"os"
-	"shpboris/keycloak-integration/auth-code-client/common/constants"
-	session "shpboris/keycloak-integration/auth-code-client/session/service"
+	"shpboris/auth-code-client/common/constants"
+	session "shpboris/auth-code-client/session/service"
 	"strings"
 	"time"
 )

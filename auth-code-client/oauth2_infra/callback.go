@@ -6,10 +6,10 @@ import (
 	"github.com/shpboris/logger"
 	"golang.org/x/oauth2"
 	"net/http"
-	"shpboris/keycloak-integration/auth-code-client/common/constants"
-	"shpboris/keycloak-integration/auth-code-client/common/utils"
-	"shpboris/keycloak-integration/auth-code-client/session/model"
-	session "shpboris/keycloak-integration/auth-code-client/session/service"
+	"shpboris/auth-code-client/common/constants"
+	"shpboris/auth-code-client/common/utils"
+	"shpboris/auth-code-client/session/model"
+	session "shpboris/auth-code-client/session/service"
 	"time"
 )
 

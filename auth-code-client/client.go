@@ -7,9 +7,9 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"shpboris/keycloak-integration/auth-code-client/common/constants"
-	"shpboris/keycloak-integration/auth-code-client/common/utils"
-	"shpboris/keycloak-integration/auth-code-client/oauth2_infra"
+	"shpboris/auth-code-client/common/constants"
+	"shpboris/auth-code-client/common/utils"
+	"shpboris/auth-code-client/oauth2_infra"
 )
 
 func main() {

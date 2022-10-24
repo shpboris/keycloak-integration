@@ -5,8 +5,8 @@ const (
 	SessionIdCookieDuration = 10
 	RealmEnvKey             = "REALM"
 	KeycloakURLEnvkey       = "KEYCLOAK_URL"
-	HomePageFilePath        = "./auth-code-client/static/home.html"
-	NestedPageFilePath      = "./auth-code-client/static/nested.html"
-	EnvVarsFilePath         = "./auth-code-client/.env"
+	HomePageFilePath        = "./static/home.html"
+	NestedPageFilePath      = "./static/nested.html"
+	EnvVarsFilePath         = "./.env"
 	HomePageURL             = "/"
 )

@@ -1,4 +1,4 @@
-module shpboris/keycloak-integration
+module shpboris/auth-code-client
 
 go 1.18
 
