@@ -4,12 +4,17 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"github.com/Nerzal/gocloak/v11/pkg/jwx"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/pkg/errors"
 	"github.com/shpboris/logger"
-	"gopkg.in/square/go-jose.v2/jwt"
 	"io"
+	"log"
 	"net/http"
+	"os"
+	"shpboris/auth-proxy/key_manager"
+	"strconv"
 	"strings"
 )
 
@@ -22,7 +27,8 @@ const (
 var policy string
 
 func main() {
-	http.ListenAndServe(fmt.Sprintf(":%d", proxyPort), &Proxy{})
+	logger.Log.Info(fmt.Sprintf("Listening on port: %d", proxyPort))
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", proxyPort), &Proxy{}))
 }
 
 type Proxy struct{}
@@ -81,19 +87,10 @@ func (p *Proxy) isAuthorized(w http.ResponseWriter, req *http.Request) bool {
 	}
 
 	tokenStr := strings.Split(authHeaderValue, " ")[1]
-	token, err := jwt.ParseSigned(tokenStr)
-	if err != nil {
+	claims, ok := decodeToken(tokenStr)
+	if !ok {
 		msg := "Token is invalid"
 		http.Error(w, msg, http.StatusUnauthorized)
-		logger.Log.Error(errors.New(msg))
-		return false
-	}
-	var claims map[string]interface{}
-	err = token.UnsafeClaimsWithoutVerification(&claims)
-	if err != nil {
-		msg := "Token is invalid"
-		http.Error(w, msg, http.StatusUnauthorized)
-		logger.Log.Error(errors.New(msg))
 		return false
 	}
 
@@ -126,4 +123,46 @@ func (p *Proxy) isAuthorized(w http.ResponseWriter, req *http.Request) bool {
 	}
 	logger.Log.Info("Completed isAuthorized")
 	return rs.Allowed()
+}
+
+func decodeToken(tokenStr string) (*jwt.MapClaims, bool) {
+	validateToken := ValidateToken()
+	claims := &jwt.MapClaims{}
+
+	if validateToken {
+		decodedHeader, err := jwx.DecodeAccessTokenHeader(tokenStr)
+		if err != nil {
+			logger.Log.Error(err)
+			return nil, false
+		}
+		key, err := key_manager.GetKey(decodedHeader.Kid, decodedHeader.Alg)
+		if err != nil {
+			logger.Log.Error(err)
+			return nil, false
+		}
+		cert := *key.X5c
+		fullCert := "-----BEGIN CERTIFICATE-----\n" + cert[0] + "\n-----END CERTIFICATE-----"
+
+		rsaPubKey, err := jwt.ParseRSAPublicKeyFromPEM([]byte(fullCert))
+		token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
+			return rsaPubKey, nil
+		})
+		if err != nil {
+			logger.Log.Error(err)
+			return nil, false
+		}
+		return claims, token.Valid
+	} else {
+		jwt.NewParser().ParseUnverified(tokenStr, claims)
+		return claims, true
+	}
+}
+
+func ValidateToken() bool {
+	validateToken := false
+	validateTokenStr := os.Getenv("VALIDATE_TOKEN")
+	if len(strings.TrimSpace(validateTokenStr)) > 0 {
+		validateToken, _ = strconv.ParseBool(validateTokenStr)
+	}
+	return validateToken
 }

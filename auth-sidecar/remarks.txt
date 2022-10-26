@@ -35,8 +35,8 @@ REST requests
 Make sure to execute those requests from within some other pod - not through port forwarding !
 Port forwarding to the service instead of to pod will not work either !!!!
 
-To check that proxy is getting involved it is enough to pass just a URL and proxy will respond with
-"Token not exist" message.
+To check that proxy is getting involved it is enough to pass just a URL like this curl http://usersapi-svc:8000/users
+and proxy will respond with "Token not exist" message.
 
 6.1
 GET request with corresponding token and myuser1 user
@@ -56,5 +56,33 @@ curl --location --request POST 'http://localhost:8000/users' \
 }'
 
 7.
+The token for the exercise can be obtained like this
+
+7.1
+For admin
+
+curl --location --request POST 'http://keycloak-http:9999/auth/realms/mytest1/protocol/openid-connect/token' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--data-urlencode 'client_id=admin-cli' \
+--data-urlencode 'username=admin' \
+--data-urlencode 'password=123' \
+--data-urlencode 'grant_type=password'
+
+7.2
+For user
+
+curl --location --request POST 'http://keycloak-http:9999/auth/realms/mytest1/protocol/openid-connect/token' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--data-urlencode 'client_id=admin-cli' \
+--data-urlencode 'username=myuser1' \
+--data-urlencode 'password=123' \
+--data-urlencode 'grant_type=password'
+
+8.
+Relevant env variables
+JWKS_URI=http://keycloak-http:9999/auth/realms/mytest1/protocol/openid-connect/certs
+VALIDATE_TOKEN=true
+
+9.
 Important tutorial - https://venilnoronha.io/hand-crafting-a-sidecar-proxy-and-demystifying-istio
 

@@ -22,7 +22,7 @@ func main() {
 	r.HandleFunc("/nested", nestedPage)
 	r.HandleFunc("/oauth2", oauth2_infra.Authorize)
 	r.Use(oauth2_infra.HeaderMiddleware)
-	log.Println("Client is running at 9094 port.")
+	logger.Log.Info("Client is running on port 9094")
 	log.Fatal(http.ListenAndServe(":9094", r))
 }
 

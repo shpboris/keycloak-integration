@@ -30,5 +30,10 @@ spec:
             - containerPort: 8000
         - name: auth-proxy
           image: shpboris/auth-proxy
+          env:
+            - name: VALIDATE_TOKEN
+              value: "true"
+            - name: JWKS_URI
+              value: "http://keycloak-http/auth/realms/mytest1/protocol/openid-connect/certs"
           ports:
           - containerPort: 8080
