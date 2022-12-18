@@ -1,21 +1,28 @@
 1.
-KEYCLOAK_URL: http://keycloak:80
-REALM: mytest1
-CLIENT_ID: keycloak-integration-app
-CLIENT_SECRET: rtie2DB14I9oab6XvGGDWa4OpSd5cqdq
-REDIRECT_URL: http://localhost:30000/security/oauth2
-AUTH_URL: http://keycloak:80/realms/mytest1/protocol/openid-connect/auth
-TOKEN_URL: http://keycloak:80/realms/mytest1/protocol/openid-connect/token
+The exercise is to protect microservices using OAuth2 authorization grant flow in K8s, Istio and Keycloak environment.
+All the code was run in remote Linux VM within Minikube.
 
 2.
-http://localhost:30000/frontend/nested
+More specifically, there is a single microservice frontend-svc and access to it is protected
+using Lua filter and security-service-svc that works with Keycloak.
+The OAuth2 interaction is similar to described in great details in this project at keycloak-integration\auth-code-client\remarks.txt.
+
+Any external request is intercepted by Lua filter and if it is not open URL forwards the URI path and
+cookie to /introspect API of security service.
+Security service inspects the request and if it doesn't contain a valid cookie, returns to Lua filter a status 401 and redirect URL to Keycloak
+in response headers. Lua returns redirect URL to browser so user can login.
+If cookie exist and valid - status 200 and corresponding token are returned to Lua filter in response headers. Then flow continues
+to original request without interruptions.
+
+In addition, security service exposes /oauth API for OAuth callback - Lua filter allows the passthrough for those API calls
+and doesn't forward them to security service on its own. The execution of /oauth API results in new cookie/token pair being
+generated and redirect to frontend home page - localhost:30000/frontend
 
 3.
-http://keycloak:80/realms/mytest1/protocol/openid-connect/auth?client_id=keycloak-integration-app&redirect_uri=http%3A%2F%2Flocalhost%3A30000%2Foauth2%2Fsecurity&response_type=code
-and includes the URL to return to - http://localhost:30000/oauth2/security
+For all details on environment creation, configuration and
+running, see keycloak-integration\security-service-poc\env-setup-and-config.txt
 
-4.
-http://localhost:30000/oauth2/security?code=xxx
 
-5.
-http://localhost:30000/frontend
+
+
+http://localhost:30000/frontend/nested

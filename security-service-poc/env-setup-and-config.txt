@@ -1,0 +1,207 @@
+1.
+Install Docker CE (community edition)
+https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-22-04
+
+Add your user to docker group (Minikube can't be run without that)  ---- sudo usermod -aG docker $USER && newgrp docker   
+
+2.
+Install Minikube using docker driver - this basically means that K8s will run WITHIN the Docker container !
+https://www.linuxtechi.com/how-to-install-minikube-on-ubuntu/
+
+3.
+Validate Docker/K8s/kubectl setup
+
+3.1
+kubectl config view
+
+3.2
+Install NGINX and test access from the VM
+https://nonanom.medium.com/run-nginx-on-kubernetes-ee6ea937bc99
+
+
+kubectl port-forward service/nginx 8080:80
+curl http://localhost:8080
+
+4.
+Install Istio
+https://istio.io/latest/docs/setup/getting-started/#download
+
+5.
+Validate Istio
+
+5.1
+Install those files - https://github.com/shpboris/users-in-mem-app/tree/master/deployment
+
+5.2
+Istio ingress is just a regular K8s service, so port forwarding to it should be no different
+than to any other service!
+
+SSH to you remote VM like this
+
+ssh 172.26.1.156
+
+Figure out the port from looking on the output of 
+kubectl -n istio-system get service istio-ingressgateway.
+
+Another approach is to do the following
+kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}'
+
+Result in my case is port 80.
+
+Port forward 30009 to 80 from any interface on the remote Linux VM machine! 
+"Any interface" here means including external interface of the Linux VM machine to which the traffic will arrive from laptop.
+kubectl -n istio-system port-forward svc/istio-ingressgateway --address 0.0.0.0 30009:80
+More on this port forwarding
+http://blog.data-alchemy.org/tips/remote-minikube/
+
+On the laptop do SSH tunnelling so all traffic sent to localhost 7777 will arrive to 172.26.1.156:30009 via jumphost 10.239.37.204
+ssh -fNT -L 7777:172.26.1.156:30009 10.239.37.204
+More on SSH tunneling 
+https://www.concordia.ca/ginacody/aits/support/faq/ssh-tunnel.html
+
+Now access you app UI from the laptop !
+http://localhost:7777/env1/swagger-ui.html
+
+[Same flow for testing NGINX installed in #3.2 above
+kubectl port-forward svc/nginx --address 0.0.0.0 30008:80
+ssh -fNT -L 9999:172.26.1.156:30008 10.239.37.204
+http://localhost:9999/]
+
+5.3
+Those are official Istio instructions (from here https://istio.io/latest/docs/setup/getting-started/#download),
+but they are useful only for access from the local machine 
+where Istio is installed. Might be useful for something, but practically needs to do #5.2 instead.
+
+Start tunneling in separate window
+minikube tunnel
+
+Get Minikube IP like this 
+kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+
+Returns 10.104.108.60
+
+Get port like this
+kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}'
+
+Returns 80
+
+Now test
+curl http://10.104.108.60:80/env1/swagger-ui.html
+
+6.
+Install Helm
+snap install helm --classic
+
+More options here
+https://www.how2shout.com/linux/how-to-install-helm-on-ubuntu-22-04-lts-jammy/
+
+7.
+Install Keycloak
+
+Add bitnami repo
+helm repo add bitnami https://charts.bitnami.com/bitnami
+
+Get the chart install parameters
+helm show values bitnami/keycloak > keycloak-values.yaml
+Edit the keycloak-values.yaml and set adminUser to admin and adminPassword to 123 (can choose any other values)
+
+Now install the chart
+helm install keycloak bitnami/keycloak -f keycloak-values.yaml
+
+8.
+kubectl port-forward svc/keycloak --address 0.0.0.0 30010:80
+ssh -fNT -L 4444:172.26.1.156:30010 10.239.37.204
+http://localhost:4444/auth
+
+
+8.
+Validate Keycloak
+
+8.1
+Validate locally
+
+Create pod to run curl
+kubectl run my-curl --image=radial/busyboxplus:curl -it
+
+Execute curl
+curl http://keycloak:80
+
+In future the pod can be reused after executing
+kubectl attach my-curl -it
+
+8.2
+Validate from laptop
+
+Configure on Linux VM
+kubectl port-forward svc/keycloak --address 0.0.0.0 30010:80
+
+Do on laptop's cmd
+ssh -fNT -L 80:172.26.1.156:30010 10.239.37.204
+
+Add keycloak to existing hosts file
+127.0.0.1 localhost keycloak-http keycloak
+
+Access from browser
+http://keycloak:80
+
+Or alternatively
+http://keycloak
+
+9.
+Full env connectivity config 
+
+9.0
+SSH to you remote VM like this
+ssh 172.26.1.156
+
+9.1
+Keycloak SSH tunnel on Win
+ssh -fNT -L 80:172.26.1.156:30010 10.239.37.204
+
+Istio Ingress SSH tunnelon Win
+ssh -fNT -L 30000:172.26.1.156:30000 10.239.37.204
+
+9.2
+Keycloak port forwarding on VM
+kubectl port-forward svc/keycloak --address 0.0.0.0 30010:80
+
+Ingress port forwarding on VM
+kubectl -n istio-system port-forward svc/istio-ingressgateway --address 0.0.0.0 30000:80
+
+10.
+Apply and validate Lua
+
+Apply filter
+kubectl apply -f my-simple-filter.yaml
+
+Do a request
+http://localhost:30000/env1/swagger-ui.html
+
+Get pods and check logs of Istio ingress pod
+kubectl -n istio-system get pods
+kubectl -n istio-system logs istio-ingressgateway-67f7b5f88d-8q7qs
+
+11.
+Build the microsevices' images and push to DockerHub
+
+nerdctl login registry-1.docker.io
+
+nerdctl --namespace k8s.io build -t shpboris/security-service .
+nerdctl --namespace k8s.io push shpboris/security-service
+
+nerdctl --namespace k8s.io build -t shpboris/frontend .
+nerdctl --namespace k8s.io push shpboris/frontend
+
+12.
+Create the environment's microservices, gateway and filter 
+
+Create gateway and Lua filter
+kubectl apply -f gateway.yml
+kubectl apply -f ingress-filter.yml
+
+Create security and frontend microservices
+kubectl apply -f -f deploy-all.yml (from this folder - keycloak-integration\security-service-poc\security-service\deploy\deploy-all.yml)
+kubectl apply -f deploy-all.yml (from this folder - keycloak-integration\security-service-poc\frontend\deploy\deployment.yml)
+
+13.
+To initiate the flow, type this in browser - http://localhost:30000/frontend/nested 
