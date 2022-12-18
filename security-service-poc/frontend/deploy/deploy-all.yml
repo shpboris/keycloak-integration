@@ -1,0 +1,54 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: frontend-vs
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - my-gateway.istio-system.svc.cluster.local
+  http:
+    - match:
+        - uri:
+            prefix: "/frontend"
+      route:
+        - destination:
+            port:
+              number: 8080
+            host: frontend-svc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-svc
+  labels:
+    app: frontend-lbl
+spec:
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+  selector:
+    app: frontend-lbl
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-dpl
+  labels:
+    app: frontend-lbl
+spec:
+  selector:
+    matchLabels:
+      app: frontend-lbl
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: frontend-lbl
+    spec:
+      containers:
+        - name: frontend
+          image: shpboris/frontend
+          ports:
+            - containerPort: 8080

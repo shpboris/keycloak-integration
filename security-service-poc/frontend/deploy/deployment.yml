@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-dpl
+  labels:
+    app: frontend-lbl
+spec:
+  selector:
+    matchLabels:
+      app: frontend-lbl
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: frontend-lbl
+    spec:
+      containers:
+        - name: frontend
+          image: shpboris/frontend
+          ports:
+            - containerPort: 8080

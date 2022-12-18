@@ -1,0 +1,114 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: ingress-auth-filter
+  namespace: istio-system
+spec:
+  workloadSelector:
+    labels:
+      app: istio-ingressgateway
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter:
+                name: envoy.filters.http.router
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.lua
+          typed_config:
+            '@type': type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+            inlineCode: |
+              lua_debug = true
+              forward_header = "x-lua-filter-request-header";
+              
+              function envoy_on_request(request_handle)
+                  log(request_handle, "warn", "Started envoy envoy_on_request")
+                  local headers = request_handle:headers()
+                  local path = headers:get(":path")
+                  log(request_handle, "warn", "Handling path "..path.." in request flow")
+              
+                  if isAuthZRequired(headers, request_handle) then
+                      local sessionCookie = ""
+                      local cookieHeader = request_handle:headers():get("cookie")
+                      if cookieHeader ~= nil then
+                        log(request_handle, "warn", "Fetched cookie header: "..cookieHeader)
+                        sessionCookie = extractSessionCookie(cookieHeader)
+                        log(request_handle, "warn", "Fetched session_id cookie value: "..sessionCookie)
+                      end
+              
+                      local response_headers, response_body = nil
+                      response_headers, response_body = request_handle:httpCall(
+                      "outbound|8080||" .. "security-service-svc.default.svc.cluster.local",
+                      {
+                        [":method"] = "GET",
+                        [":path"] = "/security/introspect",
+                        [":authority"] = "security-service-svc.default.svc.cluster.local",
+                        [forward_header] = "forwarded-call-from-lua-filter-to-security-service",
+                        ["orig_path"] = path,
+                        ["session_id"] = sessionCookie
+                      },
+                      "Request from Lua filter",
+                      25000)
+              
+                      if tonumber(response_headers[":status"]) == 401 then
+                          log(request_handle, "warn", "In 401 section !")
+                          log(request_handle, "warn", "Returned redirect url is: "..response_headers["redirect_url"])
+                          request_handle:respond(
+                                {
+                                    [":status"] = 302,
+                                    ["location"] = response_headers["redirect_url"]
+                                }
+                          )
+                      elseif tonumber(response_headers[":status"]) == 200 then
+                          log(request_handle, "warn", "In 201 section !")
+                          request_handle:headers():replace("token", response_headers["token"])
+                      end
+                  end
+                  log(request_handle, "warn", "Completed envoy envoy_on_request")
+              end
+              
+              function envoy_on_response(response_handle)
+                  log(response_handle, "warn", "In envoy response_handle")
+              end
+              
+              function extractSessionCookie(cookieHeader)
+                local _, _, key, value = string.find(cookieHeader, "(session_id)=(.+);") -- scan for cookie named 'session_id' in a list of multiple cookies, separated with ;
+                if (value == nil ) then
+                    _, _, key, value = string.find(cookieHeader, "(session_id)=(.+)") -- if it is the last cookie, then there is no ; symbol at the end of the string
+                end
+                if (value == nil ) then
+                  value = ""
+                end
+                return value
+              end
+              
+              function log(handle, level, message)
+                if lua_debug and level == "debug" then
+                    handle:logDebug(message)
+                elseif level == "info" then
+                    handle:logInfo(message)
+                elseif level == "warn" then
+                    handle:logWarn(message)
+                end
+              end
+              
+              function starts_with(str, start)
+                return str:sub(1, #start) == start
+              end
+              
+              function isAuthZRequired(headers, request_handle)
+                if starts_with(headers:get(":path"), "/security") then
+                    log(request_handle, "warn", "AuthZ is not required, because the call is to security service")
+                    return false
+                elseif headers:get(forward_header) ~= nil then
+                    log(request_handle, "warn", "AuthZ is not required, because the call has forwarded header")
+                    return false
+                end
+                return true
+              end

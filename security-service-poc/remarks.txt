@@ -1,0 +1,21 @@
+1.
+KEYCLOAK_URL: http://keycloak:80
+REALM: mytest1
+CLIENT_ID: keycloak-integration-app
+CLIENT_SECRET: rtie2DB14I9oab6XvGGDWa4OpSd5cqdq
+REDIRECT_URL: http://localhost:30000/security/oauth2
+AUTH_URL: http://keycloak:80/realms/mytest1/protocol/openid-connect/auth
+TOKEN_URL: http://keycloak:80/realms/mytest1/protocol/openid-connect/token
+
+2.
+http://localhost:30000/frontend/nested
+
+3.
+http://keycloak:80/realms/mytest1/protocol/openid-connect/auth?client_id=keycloak-integration-app&redirect_uri=http%3A%2F%2Flocalhost%3A30000%2Foauth2%2Fsecurity&response_type=code
+and includes the URL to return to - http://localhost:30000/oauth2/security
+
+4.
+http://localhost:30000/oauth2/security?code=xxx
+
+5.
+http://localhost:30000/frontend

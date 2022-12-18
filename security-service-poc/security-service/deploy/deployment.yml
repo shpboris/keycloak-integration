@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: security-service-dpl
+  labels:
+    app: security-service-lbl
+spec:
+  selector:
+    matchLabels:
+      app: security-service-lbl
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: security-service-lbl
+    spec:
+      containers:
+        - name: security-service
+          image: shpboris/security-service
+          envFrom:
+            - configMapRef:
+                name: security-config
+          ports:
+            - containerPort: 8080
