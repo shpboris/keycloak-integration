@@ -24,8 +24,8 @@ The POC was done in 2 scenarios:
 1)
 Through direct port forwarding to Keycloak so the Keycloak traffic wasn't passing through
 Istio Ingress gateway. This is more simple scenario, but
-it is not a real life setup and also requires special set of port forwardings to allow the Keycloak traffic
-to go through Local Win -> Remote VM -> Keycloak K8s service.
+it is not a real life setup and also requires special set of portforwardings and hosts file config on Windows
+to allow the Keycloak traffic to go through Local Win -> Remote VM -> Keycloak K8s service.
 
 2)
 Keycloak traffic is passing through Istio Ingress gateway, so it is no different than traffic of the other
@@ -38,7 +38,7 @@ The issuer problem is that host/port in token (after user auth in browser) are d
 URL through which Keycloak is accessed for, say,getting users (or any other API). This make Keycloak fail on 401 Unauthorized.
 
 In scenario 1) this problem doesn't happen because "keycloak" host and port "80" are intentionally used for BOTH
-external access (user auth from browser) and internal (get token at backend). This also requires to map
+external access (user auth from browser) and internal (call users API for example). This also requires to map
 "keycloak" to localhost in Windows hosts file. But in scenario 2) localhost and port 30000 are used when doing user's
 auth in browser (and consequently in resulting token), while internal access is through "keycloak" host and port 80.
 So unless magical frontend URL setting is configured - Keycloak will fail when accessing its APIs through keycloak:80

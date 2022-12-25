@@ -108,6 +108,16 @@ Edit the keycloak-values.yaml and set adminUser to admin and adminPassword to 12
 Now install the chart
 helm install keycloak bitnami/keycloak -f keycloak-values.yaml
 
+To uninstall
+helm delete keycloak
+
+Find the PVC and PV
+kubectl get pvc
+kubectl get pv
+
+Then needs to delete PVC (which deletes a PV)
+kubectl delete pvc data-keycloak-postgresql-0
+
 8.
 kubectl port-forward svc/keycloak --address 0.0.0.0 30010:80
 ssh -fNT -L 4444:172.26.1.156:30010 10.239.37.204
@@ -222,7 +232,57 @@ Keycloak through Istio ingress scenario setup and issuer problem resolution
 Basically, the setup consists of the following parts:
 -Setup Keycloak on a separate path (/auth) so it will be possible to distinguish its traffic on Ingress and route to Keycloak
 -Pass X-Forwarded-Port (and optionally(?) other X-Forwarded-* headers like Host) so Keycloak will build its links in UI properly
--Create a user and give it realm admin role so he will be able to call Keycloak admin console's APIs
+-Create a user in Keycloak and give it realm admin role so he will be able to call Keycloak admin console's APIs
 -Configure Frontend URL so Keycloak will not fail due to issuer problem (see remarks.txt for theory)
+
+14.1
+Setup Keycloak on a separate path (/auth)
+
+Uninstall bitnami/keycloak if exists.
+
+Edit httpRelativePath value to be "/auth/" in keycloak-values.yaml file when re-deploying
+bitnami/keycloak chart.
+Another option is to adjust the installation instruction itself to be - helm install keycloak --set httpRelativePath=/auth/ bitnami/keycloak
+
+In any case, pay attention to the trailing slash in /auth/ !
+Without it readiness probe of the pod will fail due to probe URL missing a slash like here.
+Readiness probe failed: Get "http://10.42.0.214:8080/authrealms/master".
+
+Additional point, when doing redeploy of the chart ALWAYS make sure to delete the corresponding persistence
+volume claim (which seems to delete the volume itself too). Anyway, PV and PVC should be deleted before starting a new deploy.
+
+Check #7 above for details.
+
+14.2
+Adding X-Forwarded-* headers
+
+Practically, the only missing part is X-Forwarded-Port as the others (Host, X-Forwarded-For already added by Istio).
+For a quick initial testing I added the header manually through Chrome's "Modify Headers" browser plugin.
+-URL pattern was defined as - http://localhost:30000/auth*
+-Header name - X-Forwarded-Port
+-Value - 30000
+
+In a real scenario the needed headers are set in my Lua filter.
+
+14.3
+Create a user and give it realm admin role
+
+See the following (first link explains a crazy catch in UI!) -
+https://keycloak.discourse.group/t/how-to-create-admin-for-local-realm/18853/2
+https://stackoverflow.com/questions/56743109/keycloak-create-admin-user-in-a-realm
+
+14.4
+Configure Frontend URL
+
+Put the following in Frontend URL field of the relevant realm settings (in my case in realm setting of realm named test1)
+http://localhost:30000/auth/
+
+Additional option, when running standalone Keycloak exe locally on Windows is to add --hostname-url http://keycloak-http:8080/auth
+like in running instruction below:
+"C:\Users\shpilb\keycloak\keycloak1-19.0.3\bin\kc.bat" start-dev --http-relative-path /auth --hostname-url http://keycloak-http:8080/auth --proxy=edge
+
+May be this hostname-url parameter can be passed to Bitnami chart's Keycloak through env vars or some other way ?
+It might be worth checking as it will affect all the realms and will elliminate a need for configuring this through UI.
+
 
 
