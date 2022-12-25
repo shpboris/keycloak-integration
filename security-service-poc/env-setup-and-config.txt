@@ -155,14 +155,14 @@ SSH to you remote VM like this
 ssh 172.26.1.156
 
 9.1
-Keycloak SSH tunnel on Win
+Keycloak SSH tunnel on Win (not needed for Keycloak through Istio ingress scenario)
 ssh -fNT -L 80:172.26.1.156:30010 10.239.37.204
 
-Istio Ingress SSH tunnelon Win
+Istio Ingress SSH tunnel on Win
 ssh -fNT -L 30000:172.26.1.156:30000 10.239.37.204
 
 9.2
-Keycloak port forwarding on VM
+Keycloak port forwarding on VM (not needed for Keycloak through Istio ingress scenario)
 kubectl port-forward svc/keycloak --address 0.0.0.0 30010:80
 
 Ingress port forwarding on VM
@@ -171,7 +171,7 @@ kubectl -n istio-system port-forward svc/istio-ingressgateway --address 0.0.0.0 
 10.
 Apply and validate Lua
 
-Apply filter
+Apply filter (from keycloak-integration\security-service-poc\backup folder)
 kubectl apply -f my-simple-filter.yaml
 
 Do a request
@@ -195,13 +195,34 @@ nerdctl --namespace k8s.io push shpboris/frontend
 12.
 Create the environment's microservices, gateway and filter 
 
+12.1
 Create gateway and Lua filter
 kubectl apply -f gateway.yml
 kubectl apply -f ingress-filter.yml
+from this folder - keycloak-integration\security-service-poc\deploy-common
+[for Keycloak through Istio ingress scenario from this folder -
+keycloak-integration\security-service-poc\deploy-common\keycloak-ingress-access]
 
+12.2
 Create security and frontend microservices
-kubectl apply -f -f deploy-all.yml (from this folder - keycloak-integration\security-service-poc\security-service\deploy\deploy-all.yml)
-kubectl apply -f deploy-all.yml (from this folder - keycloak-integration\security-service-poc\frontend\deploy\deployment.yml)
+kubectl apply -f deploy-all.yml
+from this folder - keycloak-integration\security-service-poc\security-service\deploy
+[for Keycloak through Istio ingress scenario from this folder -
+keycloak-integration\security-service-poc\security-service\deploy\keycloak-ingress-access]
+
+kubectl apply -f deploy-all.yml
+from this folder - keycloak-integration\security-service-poc\frontend\deploy
 
 13.
-To initiate the flow, type this in browser - http://localhost:30000/frontend/nested 
+To initiate the flow, type this in browser - http://localhost:30000/frontend/nested
+
+14.
+Keycloak through Istio ingress scenario setup and issuer problem resolution
+
+Basically, the setup consists of the following parts:
+-Setup Keycloak on a separate path (/auth) so it will be possible to distinguish its traffic on Ingress and route to Keycloak
+-Pass X-Forwarded-Port (and optionally(?) other X-Forwarded-* headers like Host) so Keycloak will build its links in UI properly
+-Create a user and give it realm admin role so he will be able to call Keycloak admin console's APIs
+-Configure Frontend URL so Keycloak will not fail due to issuer problem (see remarks.txt for theory)
+
+

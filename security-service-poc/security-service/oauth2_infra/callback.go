@@ -42,6 +42,8 @@ func fetchToken(w http.ResponseWriter, r *http.Request) (*oauth2.Token, bool) {
 	token, err := config.Exchange(context.Background(), code)
 	if utils.HandlePossibleError(w, err) {
 		return nil, false
+	} else {
+		logger.Log.Info("Token is: " + token.AccessToken)
 	}
 	logger.Log.Info("Completed fetchToken")
 	return token, true

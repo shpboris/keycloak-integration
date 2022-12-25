@@ -1,0 +1,41 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: my-filter
+  namespace: istio-system
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.lua
+          typed_config:
+            '@type': type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+            inlineCode: |
+              lua_debug = true
+              
+              function envoy_on_request(handle)
+                log(handle, "warn", "Hello input !")
+              end
+              
+              function envoy_on_response(handle)
+                log(handle, "warn", "Hello output !")
+                handle:headers():add("my-header", "my-header-val")
+              end
+              
+              function log(handle, level, message)
+                if lua_debug and level == "debug" then
+                    handle:logDebug(message)
+                elseif level == "info" then
+                    handle:logInfo(message)
+                elseif level == "warn" then
+                    handle:logWarn(message)
+                end
+              end

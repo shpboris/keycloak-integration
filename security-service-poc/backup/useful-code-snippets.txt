@@ -1,0 +1,45 @@
+1.
+Fetching users at validateOrRefreshToken method of interceptor:
+
+func validateOrRefreshToken(ctx context.Context, id string) (*oauth2.Token, bool) {
+	logger.Log.Info("Started validateOrRefreshToken")
+	sessionStoreService := session.GetSessionStoreService()
+	if sessionStoreService.GetSession(id) == nil {
+		logger.Log.Info("Session does not exist")
+		return nil, false
+	}
+	token := sessionStoreService.GetSession(id).Token
+	client := getKeyCloakClient()
+	if token.Expiry.Before(time.Now()) {
+		config := GetOauth2ConfigProvider().GetConfig()
+		realm := os.Getenv(constants.RealmEnvKey)
+		logger.Log.Warn("Token is expired, performing refresh")
+		jwt, err := client.RefreshToken(ctx, token.RefreshToken, config.ClientID, config.ClientSecret, realm)
+		if err != nil {
+			logger.Log.Warn("Refresh token failed")
+			logger.Log.Error(err)
+			return nil, false
+		}
+		logger.Log.Info("Refreshed token")
+		token.AccessToken = jwt.AccessToken
+		token.RefreshToken = jwt.RefreshToken
+		token.Expiry = time.Now().Add(time.Duration(jwt.ExpiresIn) * time.Second)
+	}
+	logger.Log.Info("Token is: " + token.AccessToken)
+	logger.Log.Info("Started to get users !!!")
+	params := gocloak.GetUsersParams{}
+	users, err := client.GetUsers(ctx, token.AccessToken, "mytest1", params)
+	if err != nil {
+		logger.Log.Error("Failed getting users", err)
+	}
+	if users != nil && len(users) > 0 {
+		for _, currUser := range users {
+			logger.Log.Info("Found user: " + *currUser.Username)
+		}
+	}
+	logger.Log.Info("Completed to get users !!!")
+	logger.Log.Info("Token is good")
+	logger.Log.Info("Completed validateOrRefreshToken")
+	return token, true
+}
+

@@ -19,10 +19,47 @@ and doesn't forward them to security service on its own. The execution of /oauth
 generated and redirect to frontend home page - localhost:30000/frontend
 
 3.
+The POC was done in 2 scenarios:
+
+1)
+Through direct port forwarding to Keycloak so the Keycloak traffic wasn't passing through
+Istio Ingress gateway. This is more simple scenario, but
+it is not a real life setup and also requires special set of port forwardings to allow the Keycloak traffic
+to go through Local Win -> Remote VM -> Keycloak K8s service.
+
+2)
+Keycloak traffic is passing through Istio Ingress gateway, so it is no different than traffic of the other
+microservices. This is more complex to setup, but it is closer to a real life setup as all traffic passes through
+Local Win -> Remote VM -> Istio Ingress. Istio Ingress routes the traffic to appropriate microservices based
+on the virtual services.
+
+In addition, the issuer problem was solved using Keycloak Frontend URL configuration.
+The issuer problem is that host/port in token (after user auth in browser) are different than in the
+URL through which Keycloak is accessed for, say,getting users (or any other API). This make Keycloak fail on 401 Unauthorized.
+
+In scenario 1) this problem doesn't happen because "keycloak" host and port "80" are intentionally used for BOTH
+external access (user auth from browser) and internal (get token at backend). This also requires to map
+"keycloak" to localhost in Windows hosts file. But in scenario 2) localhost and port 30000 are used when doing user's
+auth in browser (and consequently in resulting token), while internal access is through "keycloak" host and port 80.
+So unless magical frontend URL setting is configured - Keycloak will fail when accessing its APIs through keycloak:80
+instead of localhost:30000
+
+4.
 For all details on environment creation, configuration and
 running, see keycloak-integration\security-service-poc\env-setup-and-config.txt
 
+5.
+API interaction (Keycloak through Istio ingress scenario)
 
-
-
+5.1
 http://localhost:30000/frontend/nested
+5.2
+http://localhost:30000/auth/realms/mytest1/protocol/openid-connect/auth?client_id=keycloak-integration-app&redirect_uri=http%3A%2F%2Flocalhost%3A30000%2Fsecurity%2Foauth2&response_type=code
+5.3
+http://localhost:30000/auth/realms/mytest1/login-actions/authenticate?session_code=0VG5ShmiQwUS0FQmV8OBXU6JeZzJfO45b2I1JWQFLKE&execution=715fdedd-099c-4240-b1be-dcd19041eb08&client_id=keycloak-integration-app&tab_id=xm5l4jLhYkI
+username: myuser1
+password: 111
+5.4
+http://localhost:30000/security/oauth2?session_state=7ab44fe4-1537-40da-be99-867fd5bb04b8&code=0024ea01-2f90-4971-a07c-4c588ff7842f.7ab44fe4-1537-40da-be99-867fd5bb04b8.c46b8f6d-bbb5-4802-9009-2938640e19ae
+5.5
+http://localhost:30000/frontend
