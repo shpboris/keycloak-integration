@@ -9,4 +9,6 @@ const (
 	NestedPageFilePath      = "./static/nested.html"
 	EnvVarsFilePath         = "./.env"
 	HomePageURL             = "/"
+	TokenNameKey            = "token"
+	RealmNameKey            = "realm"
 )

@@ -9,9 +9,14 @@ var idToTokenMap = make(map[string]*model.Session)
 type SessionStoreService interface {
 	StoreSession(sessionId string, session *model.Session)
 	GetSession(sessionId string) *model.Session
+	DeleteSession(sessionId string)
 }
 
 type service struct{}
+
+func (s *service) DeleteSession(sessionId string) {
+	delete(idToTokenMap, sessionId)
+}
 
 func GetSessionStoreService() SessionStoreService {
 	return &service{}
