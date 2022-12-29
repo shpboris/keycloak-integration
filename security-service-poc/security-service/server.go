@@ -16,6 +16,8 @@ func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/security/oauth2", oauth2_infra.Authorize)
 	r.HandleFunc("/security/introspect", oauth2_infra.Introspect)
+	r.HandleFunc("/security/logout", oauth2_infra.Logout)
+	r.HandleFunc("/security/user-info", oauth2_infra.GetUserInfo)
 	logger.Log.Info("Server is running on port 8080")
 	log.Fatal(http.ListenAndServe(":8080", r))
 }

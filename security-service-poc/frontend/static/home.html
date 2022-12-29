@@ -3,9 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <title>Home</title>
+    <style>
+        .container {
+            width: 97%;
+            margin: auto;
+        }
+        .one {
+            width: 20%;
+            float: left;
+        }
+        .two {
+            width: 80%;
+            float: right;
+        }
+    </style>
 </head>
 <body>
 <h1 style="text-align:center">Home page</h1>
-<a href="/frontend/nested">Switch to nested page</a>
+<div class="container">
+    <div class="one"><a href="/frontend/nested">Switch to nested page</a></div>
+    <div class="two">
+        <div>
+            <h3 style="text-align:right; margin-top:0">Welcome, $user$</h3>
+            <form action="/security/logout" method="POST">
+                <div>
+                    <button style="float:right">Logout</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 </body>
 </html>

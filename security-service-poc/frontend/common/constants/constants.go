@@ -1,6 +1,7 @@
 package constants
 
 const (
-	HomePagePath   = "/frontend"
-	NestedPagePath = "/frontend/nested"
+	HomePagePath    = "/frontend"
+	NestedPagePath  = "/frontend/nested"
+	TokenHeaderName = "token"
 )

@@ -7,8 +7,10 @@ import (
 	"github.com/shpboris/logger"
 	"log"
 	"net/http"
+	"shpboris/frontend/client"
 	"shpboris/frontend/common/constants"
 	"shpboris/frontend/common/utils"
+	"strings"
 )
 
 //go:embed static/home.html
@@ -34,15 +36,29 @@ func nestedPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func loadPage(w http.ResponseWriter, r *http.Request, path string) {
-	msg := fmt.Sprintf("Handling request: %s, received token : %s", r.RequestURI, r.Header.Get("token"))
-	logger.Log.Info(msg)
-	w.Header().Set("Content-type", "text/html")
-	var resourceBytes []byte
-	if path == constants.HomePagePath {
-		resourceBytes = []byte(home_resource)
-	} else {
-		resourceBytes = []byte(nested_resource)
+	logger.Log.Info("Started loadPage")
+	logger.Log.Info(fmt.Sprintf("Handling request: %s", r.RequestURI))
+	accessToken := r.Header.Get(constants.TokenHeaderName)
+	if len(strings.TrimSpace(accessToken)) == 0 {
+		utils.HandleSpecificError(w, "Token is empty", 400)
+		return
 	}
-	_, err := w.Write(resourceBytes)
+	logger.Log.Info(fmt.Sprintf("Received token : %s", accessToken))
+	var resource string
+	if path == constants.HomePagePath {
+		resource = home_resource
+	} else {
+		resource = nested_resource
+	}
+	userInfo, err := client.GetUserInfo(accessToken)
+	if err != nil {
+		logger.Log.Error("Failed to get user info", err)
+	}
+	if userInfo != nil {
+		resource = strings.ReplaceAll(resource, "$user$", *userInfo.PreferredUsername)
+	}
+	w.Header().Set("Content-type", "text/html")
+	_, err = w.Write([]byte(resource))
 	utils.HandlePossibleError(w, err)
+	logger.Log.Info("Completed loadPage")
 }

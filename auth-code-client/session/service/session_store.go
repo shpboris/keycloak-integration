@@ -14,10 +14,6 @@ type SessionStoreService interface {
 
 type service struct{}
 
-func (s *service) DeleteSession(sessionId string) {
-	delete(idToTokenMap, sessionId)
-}
-
 func GetSessionStoreService() SessionStoreService {
 	return &service{}
 }
@@ -28,4 +24,8 @@ func (s *service) StoreSession(sessionId string, session *model.Session) {
 
 func (s *service) GetSession(sessionId string) *model.Session {
 	return idToTokenMap[sessionId]
+}
+
+func (s *service) DeleteSession(sessionId string) {
+	delete(idToTokenMap, sessionId)
 }

@@ -17,5 +17,8 @@ spec:
       containers:
         - name: frontend
           image: shpboris/frontend
+          env:
+            - name: SECURITY_SERVICE_URL_KEY
+              value: "http://security-service-svc:8080"
           ports:
             - containerPort: 8080
