@@ -302,7 +302,7 @@ kubectl create -n istio-system secret tls localhost-credential --key=localhost.k
 15.2
 Configure Gateway endpoint on port 443 with credential from #15.1 above
 
-We are not replacing HTTP endpoint with HTTPS one, but adding a new HTTP endpoint.
+We are not replacing already existing HTTP endpoint (port 80) with HTTPS one, but adding a new HTTPS endpoint (port 443).
 See - keycloak-integration\security-service-poc\deploy-common\keycloak-ingress-access-https\gateway.yml
 
 15.3
@@ -318,15 +318,13 @@ See - keycloak-integration\security-service-poc\security-service\deploy\keycloak
 And also same config map here - keycloak-integration\security-service-poc\security-service\deploy\keycloak-ingress-access-https\deploy-all.yml
 
 15.4
-Change Frontend URLs for master (needed for Keycloak UI) and mytest1 realms
+Change Frontend URL for mytest1 realm
 
-The Frontend URL should be the following in both realms:
+The Frontend URL should be the following:
 https://localhost:30000/auth/
 
-Is this really is needed for master ? One of Keycloak UI URLs had http protocol scheme despite
-X-Forwarded-Proto set to https in Lua filter - but may be it was due to previously remained Frontend URL that used http scheme ?
-
 This is needed for mytest1 realm to resolve the issuer problem.
+Setting the URL should be done with a correct HTTPS URL (not arbitrary URL) as it also affects URLs used by Keycloak UI.
 
 15.5
 Valid redirect URL should be changed to HTTPS
@@ -335,14 +333,14 @@ The keycloak-integration-app client's valid redirect URL should be changed in Ke
 https://localhost:30000/security/oauth2
 
 15.5
-Adjust the Istio filter with HTTPS protocol scheme
+Istio filter changes
 
-X-Forwarded-Proto is set to https.
-See here - keycloak-integration\security-service-poc\deploy-common\keycloak-ingress-access-https\ingress-filter.yml
-Can't it be taken by Keycloak UI from the Frontend URL instead ?
+Seems like no special changes are required compared to HTTP scenario.
 
-Seems like the X-Forwarded-Port configuration to 30000 in ingress-filter.yml is really needed
-despite having a correct port in master's realm Frontend URL. Without it Keycloak UI is not working.
+X-Forwarded-Port is already set in my Lua filter to 30000 for HTTP scenario, so reusing it for HTTPS.
+X-Forwarded-Proto is set by Istio correctly (for https requests to https).
+Host seems to be defined through :authority header (value is localhost:30000) by Keycloak? Why is port not taken
+from this header ?
 
 15.6
 Change port forwarding on VM to forward traffic from port 30000 to port 443

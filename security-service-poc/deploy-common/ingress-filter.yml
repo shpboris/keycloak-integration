@@ -32,6 +32,7 @@ spec:
                   local headers = request_handle:headers()
                   local path = headers:get(":path")
                   log(request_handle, "warn", "Handling path "..path.." in request flow")
+                  logHeaders(request_handle)
               
                   if isAuthZRequired(headers, request_handle) then
                       local sessionCookie = ""
@@ -111,4 +112,11 @@ spec:
                     return false
                 end
                 return true
+              end
+              
+              function logHeaders(handle)
+                local headers = handle:headers()
+                for key, value in pairs(headers) do
+                    handle:logWarn("Header name: "..key.." value: "..value)
+                end
               end
