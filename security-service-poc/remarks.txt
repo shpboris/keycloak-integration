@@ -19,7 +19,7 @@ and doesn't forward them to security service on its own. The execution of /oauth
 generated and redirect to frontend home page - localhost:30000/frontend
 
 3.
-The POC was done in 2 scenarios:
+The POC was done in 3 scenarios:
 
 1)
 Through direct port forwarding to Keycloak so the Keycloak traffic wasn't passing through
@@ -28,9 +28,9 @@ it is not a real life setup and also requires special set of portforwardings and
 to allow the Keycloak traffic to go through Local Win -> Remote VM -> Keycloak K8s service.
 
 2)
-Keycloak traffic is passing through Istio Ingress gateway, so it is no different than traffic of the other
+Keycloak traffic is passing through Istio Ingress gateway over HTTP, so it is no different than traffic of the other
 microservices. This is more complex to setup, but it is closer to a real life setup as all traffic passes through
-Local Win -> Remote VM -> Istio Ingress. Istio Ingress routes the traffic to appropriate microservices based
+Local Win (port 30000) -> Remote VM (port 30000) -> Istio Ingress (port 80). Istio Ingress routes the traffic to appropriate microservices based
 on the virtual services.
 
 In addition, the issuer problem was solved using Keycloak Frontend URL configuration.
@@ -43,6 +43,13 @@ external access (user auth from browser) and internal (call users API for exampl
 auth in browser (and consequently in resulting token), while internal access is through "keycloak" host and port 80.
 So unless magical frontend URL setting is configured - Keycloak will fail when accessing its APIs through keycloak:80
 instead of localhost:30000
+
+3)
+Keycloak traffic is passing through Istio Ingress gateway over HTTPS
+
+Same as 2) above but over HTTPS when Istio Ingress gateway on port 443 is configured with TLS related certs/keys.
+Traffic flows through Local Win (port 30000) -> Remote VM (port 30000) -> Istio Ingress (port 443)
+
 
 4.
 For all details on environment creation, configuration and

@@ -211,14 +211,14 @@ kubectl apply -f gateway.yml
 kubectl apply -f ingress-filter.yml
 from this folder - keycloak-integration\security-service-poc\deploy-common
 [for Keycloak through Istio ingress scenario from this folder -
-keycloak-integration\security-service-poc\deploy-common\keycloak-ingress-access]
+keycloak-integration\security-service-poc\deploy-common\keycloak-ingress-access-http]
 
 12.2
 Create security and frontend microservices
 kubectl apply -f deploy-all.yml
 from this folder - keycloak-integration\security-service-poc\security-service\deploy
 [for Keycloak through Istio ingress scenario from this folder -
-keycloak-integration\security-service-poc\security-service\deploy\keycloak-ingress-access]
+keycloak-integration\security-service-poc\security-service\deploy\keycloak-ingress-access-http]
 
 kubectl apply -f deploy-all.yml
 from this folder - keycloak-integration\security-service-poc\frontend\deploy
@@ -282,7 +282,77 @@ like in running instruction below:
 "C:\Users\shpilb\keycloak\keycloak1-19.0.3\bin\kc.bat" start-dev --http-relative-path /auth --hostname-url http://keycloak-http:8080/auth --proxy=edge
 
 May be this hostname-url parameter can be passed to Bitnami chart's Keycloak through env vars or some other way ?
-It might be worth checking as it will affect all the realms and will elliminate a need for configuring this through UI.
+It might be worth checking as it will affect all the realms and will eliminate a need for configuring this through UI.
 
+
+15.
+Configuring HTTPS over Istio ingress for both my services and Keycloak UI
+
+15.1
+Generate keys/certs and create Istio TLS credential
+
+openssl req -x509 -sha256 -nodes -days 365 -newkey rsa:2048 -subj '/O=myca Inc./CN=myca.com' -keyout myca.com.key -out myca.com.crt
+openssl req -out localhost.csr -newkey rsa:2048 -nodes -keyout localhost.key -subj "/CN=localhost/O=myorg"
+openssl x509 -req -sha256 -days 365 -CA myca.com.crt -CAkey myca.com.key -set_serial 0 -in localhost.csr -out localhost.crt
+
+kubectl create -n istio-system secret tls localhost-credential --key=localhost.key --cert=localhost.crt
+
+[See more here - https://istio.io/latest/docs/tasks/traffic-management/ingress/secure-ingress/]
+
+15.2
+Configure Gateway endpoint on port 443 with credential from #15.1 above
+
+We are not replacing HTTP endpoint with HTTPS one, but adding a new HTTP endpoint.
+See - keycloak-integration\security-service-poc\deploy-common\keycloak-ingress-access-https\gateway.yml
+
+15.3
+Change all external URLs related to my services to works with HTTPS protocol
+
+Changes are:
+
+REDIRECT_URL: https://localhost:30000/security/oauth2
+AUTH_URL: https://localhost:30000/auth/realms/mytest1/protocol/openid-connect/auth
+HOME_PAGE_URL: https://localhost:30000/frontend
+
+See - keycloak-integration\security-service-poc\security-service\deploy\keycloak-ingress-access-https\config-map.yml
+And also same config map here - keycloak-integration\security-service-poc\security-service\deploy\keycloak-ingress-access-https\deploy-all.yml
+
+15.4
+Change Frontend URLs for master (needed for Keycloak UI) and mytest1 realms
+
+The Frontend URL should be the following in both realms:
+https://localhost:30000/auth/
+
+Is this really is needed for master ? One of Keycloak UI URLs had http protocol scheme despite
+X-Forwarded-Proto set to https in Lua filter - but may be it was due to previously remained Frontend URL that used http scheme ?
+
+This is needed for mytest1 realm to resolve the issuer problem.
+
+15.5
+Valid redirect URL should be changed to HTTPS
+
+The keycloak-integration-app client's valid redirect URL should be changed in Keycloak UI (mytest1 realm) to
+https://localhost:30000/security/oauth2
+
+15.5
+Adjust the Istio filter with HTTPS protocol scheme
+
+X-Forwarded-Proto is set to https.
+See here - keycloak-integration\security-service-poc\deploy-common\keycloak-ingress-access-https\ingress-filter.yml
+Can't it be taken by Keycloak UI from the Frontend URL instead ?
+
+Seems like the X-Forwarded-Port configuration to 30000 in ingress-filter.yml is really needed
+despite having a correct port in master's realm Frontend URL. Without it Keycloak UI is not working.
+
+15.6
+Change port forwarding on VM to forward traffic from port 30000 to port 443
+
+kubectl -n istio-system port-forward svc/istio-ingressgateway --address 0.0.0.0 30000:443
+
+15.7
+Access my app and Keycloak UI
+
+My app access - https://localhost:30000/frontend/nested
+Keycloak UI access - https://localhost:30000/auth/
 
 
